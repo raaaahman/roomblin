@@ -17,96 +17,90 @@ var Game = {
   create: function() {
 
     //Create the map
-    map = game.add.tilemap('level');
+    map = this.add.tilemap('level' + currentLevel);
     map.addTilesetImage('tileset', 'tileset');
     //Creating the layers
-    groundLayer = map.createLayer('ground');
-    wallLayer = map.createLayer('walls');
+    groundLayer = map.createLayer('ground', 'tileset');
+    wallLayer = map.createLayer('walls', 'tileset');
 
     //Setting the collision with the tiles in the wall layer
     map.setCollisionBetween(1, 20, true, 'walls');
 
-    //Then we resize the game world to fit the current map
-    groundLayer.resizeWorld();
-
-    //Start the physics
-    game.physics.startSystem(Phaser.Physics.ARCADE);
-
     //Spawning the players
     players = [];
-    for (var i = 0; i < map.objects['startingPos'].length; i++) {
-      var newPlayer = game.add.sprite(map.objects['startingPos'][i].x, map.objects['startingPos'][i].y, 'player' + i);
+    var objects = map.getObjectLayer('startingPos').objects;
+    for (var i = 0; i < objects.length; i++) {
+      var newPlayer = this.physics.add.sprite(objects[i].x, objects[i].y, 'player' + i)
+      .setOrigin(0);
       players.push(newPlayer);
-      game.physics.arcade.enable(players[i]);
     }
 
     //Getting the goal to finish the level
-    levelGoal = map.objects['startingPos'][0].properties.goal;
+    levelGoal = objects[0].properties.goal;
     playerScore = 0;
     playerMoves = 0;
 
     //setting keyboard controls
-    cursors = game.input.keyboard.createCursorKeys();
-    controls = game.input.keyboard.addKeys({
-      "r": Phaser.KeyCode.R,
-      "space": Phaser.KeyCode.SPACEBAR
+    cursors = this.input.keyboard.createCursorKeys();
+    controls = this.input.keyboard.addKeys({
+      "r": Phaser.Input.Keyboard.KeyCodes.R
     });
 
     //SCREEN TEXT//
-    moveText = game.add.text(72, 2, 'Moves: 0', {fontSize: '12px', fill: '#000'});
+    moveText = this.add.text(72, 2, 'Moves: 0', {fontSize: '12px', fill: '#000'});
   },
 
   update: function() {
     //Check if the game is won
     if (playerScore >= levelGoal) {
       //stop moving
-      players[0].body.stopMovement(true);
+      players[0].body.stop();
 
       //display a sound
-      soundWin.play();
+      this.sound.play('win');
 
       //Go the screen between levels
-      game.state.start('EndScreen');
+      this.scene.start('EndScreen');
     }
 
     //Check for reset
     if (controls.r.isDown) {
       //alert with a sound
-      soundReset.play();
+      this.sound.play('reset');
 
       this.create();
     }
 
     //Collision rules
-    game.physics.arcade.collide(players[0], wallLayer);
+    this.physics.collide(players[0], wallLayer);
 
     //Get the tile under the player's body center
     playerCenter = players[0].body.center;
-    tileUnder = map.getTileWorldXY(playerCenter.x, playerCenter.y);
+    tileUnder = map.getTileAtWorldXY(playerCenter.x, playerCenter.y, false, this.cameras.main, 'ground');
 
     //Player movement
     //If player is not moving, set a new velocity
     if (players[0].body.velocity.x == 0 && players[0].body.velocity.y == 0) {
 
       //Keyboard inputs
-      if (cursors.up.isDown && map.getTile(tileUnder.x, tileUnder.y - 1, 'walls') == null) {
+      if (cursors.up.isDown && map.getTileAt(tileUnder.x, tileUnder.y - 1, false, 'walls') == null) {
 
-        this.countMove();
+        Game.countMove.call(this);
         players[0].body.velocity.y = -movingSpeed;
 
-      } else if(cursors.down.isDown && map.getTile(tileUnder.x, tileUnder.y + 1, 'walls') == null) {
+      } else if(cursors.down.isDown && map.getTileAt(tileUnder.x, tileUnder.y + 1, false, 'walls') == null) {
 
-        this.countMove();
+        Game.countMove.call(this);
         players[0].body.velocity.y = movingSpeed;
 
-      } else if(cursors.left.isDown && map.getTile(tileUnder.x - 1, tileUnder.y, 'walls') == null) {
+      } else if(cursors.left.isDown && map.getTileAt(tileUnder.x - 1, tileUnder.y, false, 'walls') == null) {
 
-        this.countMove();
+        Game.countMove.call(this);
         players[0].body.velocity.x = -movingSpeed;
 
-      } else if(cursors.right.isDown && map.getTile(tileUnder.x + 1, tileUnder.y, 'walls') == null) {
+      } else if(cursors.right.isDown && map.getTileAt(tileUnder.x + 1, tileUnder.y, false, 'walls') == null) {
 
-        this.countMove();
+        Game.countMove.call(this);
         players[0].body.velocity.x = movingSpeed;
 
       }
@@ -115,8 +109,8 @@ var Game = {
   } else {
 
     //Check the tile the player is over
-    if (map.getTile(tileUnder.x, tileUnder.y).index == 18) {
-      map.replace(18, 16, tileUnder.x, tileUnder.y, 1, 1, 'ground');
+    if (map.getTileAt(tileUnder.x, tileUnder.y, false, 'ground').index == 18) {
+      map.putTileAt(16, tileUnder.x, tileUnder.y, false, 'ground');
       playerScore++;
     }
   }
@@ -125,7 +119,7 @@ var Game = {
 
   countMove: function() {
     //Add a sound effect
-    soundMove.play();
+    this.sound.play('move');
     //Count one move
     playerMoves++;
     moveText.text = 'Moves: ' + playerMoves;
